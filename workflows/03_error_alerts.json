@@ -1,0 +1,52 @@
+{
+  "name": "Уведомления об ошибках",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "15171af0-d778-4737-9295-6f5ed66b98d2",
+      "name": "Ошибка в любом сценарии",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "ВСТАВЬТЕ_CHAT_ID_АДМИНА",
+        "text": "=⚠️ <b>Ошибка в сценарии</b> «{{ $json.workflow.name }}»\n\n<b>Узел:</b> {{ $json.execution.lastNodeExecuted }}\n<b>Ошибка:</b> {{ String($json.execution.error.message || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }}\n\n{{ $json.execution.url ? '<a href=\"' + $json.execution.url + '\">Открыть запуск</a>' : '' }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "4b6a15c9-ff6f-48d1-b92d-0cc369d18c3a",
+      "name": "Сообщить администратору",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        260,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Ошибка в любом сценарии": {
+      "main": [
+        [
+          {
+            "node": "Сообщить администратору",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "active": false
+}

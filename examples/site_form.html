@@ -1,0 +1,20 @@
+<!-- Минимальная форма заявки для сайта. Замените адрес на Production URL узла «Форма на сайте». -->
+<form id="lead">
+  <input name="name" placeholder="Имя" required>
+  <input name="phone" placeholder="Телефон">
+  <input name="email" type="email" placeholder="Email">
+  <textarea name="message" placeholder="Что нужно?" required></textarea>
+  <button>Отправить</button>
+  <p id="lead-result"></p>
+</form>
+<script>
+document.getElementById('lead').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const res = await fetch('https://your-domain.example.com/webhook/lead', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(Object.fromEntries(new FormData(e.target))),
+  });
+  const data = await res.json();
+  document.getElementById('lead-result').textContent = data.ok ? `${data.message} Номер заявки: ${data.id}` : 'Ошибка, попробуйте позже';
+});
+</script>

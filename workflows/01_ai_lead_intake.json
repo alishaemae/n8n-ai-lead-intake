@@ -1,0 +1,714 @@
+{
+  "name": "AI-обработка входящих заявок",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "id": "06dc2b2f-7fd7-47cc-a20a-43802f1a5f1e",
+      "name": "Telegram: новое сообщение",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "69ef8e03-489e-48ec-8c89-f8782d563476"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lead",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "63d195ec-47b3-45c6-9cd4-166899ebac0d",
+      "name": "Форма на сайте",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        260
+      ],
+      "webhookId": "a299c06c-735b-4f83-8b45-d378fd7fd07e"
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "36f7bc51-e4bc-4c99-83ab-a208be75cc52",
+              "name": "source",
+              "value": "telegram",
+              "type": "string"
+            },
+            {
+              "id": "76f139b1-5c13-4213-aac4-a4a1342cf216",
+              "name": "text",
+              "value": "={{ $json.message.text || $json.message.caption || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "aa156972-0d81-404b-b4b8-62b1874e7a53",
+              "name": "chat_id",
+              "value": "={{ $json.message.chat.id }}",
+              "type": "string"
+            },
+            {
+              "id": "11ebbbdb-a607-479a-ac77-53d4bb807e58",
+              "name": "name",
+              "value": "={{ [$json.message.from.first_name, $json.message.from.last_name].filter(Boolean).join(' ') }}",
+              "type": "string"
+            },
+            {
+              "id": "f3fe38c0-c9b0-4d2b-9335-44916e419714",
+              "name": "contact",
+              "value": "={{ $json.message.from.username ? '@' + $json.message.from.username : '' }}",
+              "type": "string"
+            },
+            {
+              "id": "1d6883d4-fe93-48a7-80f3-39e89131281f",
+              "name": "phone",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b7dd5929-4213-408e-9f80-39e6e90c6373",
+      "name": "Из Telegram",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6e477c2a-c273-4d30-b288-0c075ea6b549",
+              "name": "source",
+              "value": "сайт",
+              "type": "string"
+            },
+            {
+              "id": "93dd50c3-2b08-43d7-95a5-45acff1b3ee7",
+              "name": "text",
+              "value": "={{ $json.body.message || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "9658e60e-07cb-42d0-89d5-86e148139df7",
+              "name": "chat_id",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "7617627d-d337-4d13-aae5-af2bf898074f",
+              "name": "name",
+              "value": "={{ $json.body.name || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "62ab150a-b2a2-4664-b5b4-ba1e33265793",
+              "name": "contact",
+              "value": "={{ $json.body.email || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "44a0b4dd-2fb3-4e9e-93da-5ac7f9dd9546",
+              "name": "phone",
+              "value": "={{ $json.body.phone || '' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "bbfcf9fe-9583-4373-abbb-9db8d94b40fd",
+      "name": "С сайта",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        240,
+        260
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "61133684-0390-4c21-881b-c4b1d27fcf0b",
+      "name": "Входящая заявка",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        480,
+        130
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Источник: {{ $json.source }}\nИмя отправителя: {{ $json.name }}\nТелефон из формы: {{ $json.phone }}\n\nТекст заявки:\n{{ $json.text }}",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "Ты помощник отдела продаж. Тебе приходит текст заявки от клиента (из Telegram или формы на сайте).\nИзвлеки данные строго из текста. Ничего не придумывай: если поля нет в тексте, верни пустую строку.\n\nПравила:\n- client_name: имя человека или название компании, как в тексте.\n- phone: телефон в формате +7XXXXXXXXXX, если он есть.\n- summary: суть запроса одним предложением, до 20 слов.\n- items: перечень товаров или услуг через \"; \" (например \"Кофе зерновой 1 кг x 10; Сиропы x 4\"), пусто если нет.\n- category: одно из: \"заказ\", \"вопрос\", \"жалоба\", \"сотрудничество\", \"другое\".\n- urgency: \"высокая\" если клиент пишет срочно, сегодня, горит, жалуется на сорванный заказ; \"средняя\" если указан срок в ближайшие дни; иначе \"низкая\".\n- sentiment: \"позитив\", \"нейтрально\" или \"негатив\".\n- reply: короткий вежливый ответ клиенту от имени компании (1-2 предложения), без обещаний цен и сроков."
+            }
+          ]
+        }
+      },
+      "id": "81f8edf0-37b0-46a4-a1c8-ff9e9a02fc90",
+      "name": "AI: разбор заявки",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        720,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "deepseek-chat",
+          "mode": "id"
+        },
+        "options": {
+          "temperature": 0,
+          "timeout": 60000
+        }
+      },
+      "id": "d8c7f3e5-646d-4473-b108-d1086e27db09",
+      "name": "Модель (DeepSeek / OpenAI)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        660,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"client_name\": \"Кафе «Ромашка», Ирина\",\n  \"phone\": \"+79991234567\",\n  \"summary\": \"Заказ кофе и сиропов с доставкой на завтра\",\n  \"items\": \"Кофе зерновой 1 кг x 10; Сироп ваниль x 4\",\n  \"category\": \"заказ\",\n  \"urgency\": \"средняя\",\n  \"sentiment\": \"нейтрально\",\n  \"reply\": \"Спасибо, Ирина! Заявку приняли, менеджер свяжется с вами в ближайшее время.\"\n}"
+      },
+      "id": "a9d3e60e-10e3-40ad-9e20-6e889d59efd5",
+      "name": "Схема ответа",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        880,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "id": "60ac42a8-f1ae-4d87-a3d1-a33de9d7a284",
+      "name": "Объединить с заявкой",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1040,
+        130
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Собираем строку для таблицы: исходные данные заявки + то, что извлекла нейросеть\nconst esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst out = [];\nfor (const item of $input.all()) {\n  const j = item.json;\n  const ai = j.output || {};\n  const clean = (v) => (typeof v === 'string' ? v.trim() : '');\n  // телефон: если нейросеть не нашла, пробуем вытащить регуляркой из текста\n  let phone = clean(ai.phone) || clean(j.phone);\n  if (!phone) {\n    const m = (j.text || '').match(/(\\+7|8)[\\s\\-()]*\\d{3}[\\s\\-()]*\\d{3}[\\s\\-]*\\d{2}[\\s\\-]*\\d{2}/);\n    if (m) phone = m[0];\n  }\n  const digits = phone.replace(/\\D/g, '');\n  if (digits.length === 11) phone = '+7' + digits.slice(1);\n  const allowed = { category: ['заказ','вопрос','жалоба','сотрудничество','другое'],\n                    urgency: ['высокая','средняя','низкая'],\n                    sentiment: ['позитив','нейтрально','негатив'] };\n  const pick = (k, def) => allowed[k].includes(clean(ai[k])) ? clean(ai[k]) : def;\n  const row = {\n    'ID': 'L-' + DateTime.now().toFormat('yyMMdd-HHmmss') + '-' + Math.floor(Math.random()*90+10),\n    'Дата': DateTime.now().setZone('Europe/Moscow').toFormat('dd.MM.yyyy HH:mm'),\n    'Источник': j.source,\n    'Клиент': clean(ai.client_name) || clean(j.name) || '—',\n    'Телефон': phone,\n    'Контакт': j.contact || '',\n    'Суть': clean(ai.summary),\n    'Позиции': clean(ai.items),\n    'Категория': pick('category', 'другое'),\n    'Срочность': pick('urgency', 'низкая'),\n    'Тон': pick('sentiment', 'нейтрально'),\n    'Текст заявки': j.text,\n    'Статус': 'новая',\n    // служебные поля для ответа клиенту (в таблицу не пишутся)\n    _chat_id: j.chat_id || '',\n  };\n  const reply = clean(ai.reply) || 'Спасибо! Заявку получили, менеджер скоро с вами свяжется.';\n  // готовые тексты для Telegram (HTML, пользовательский текст экранируется)\n  row._manager_text = [\n    `🔥 <b>Срочная заявка</b> ${row['ID']}`, '',\n    `<b>Клиент:</b> ${esc(row['Клиент'])}`,\n    `<b>Телефон:</b> ${esc(row['Телефон'] || 'не указан')}`,\n    `<b>Категория:</b> ${row['Категория']} · ${row['Тон']}`,\n    `<b>Суть:</b> ${esc(row['Суть'])}`,\n    row['Позиции'] ? `<b>Позиции:</b> ${esc(row['Позиции'])}` : '',\n    '', `<i>Источник: ${esc(row['Источник'])} ${esc(row['Контакт'])}</i>`,\n  ].filter((l, i, a) => !(l === '' && a[i - 1] === '')).join('\\n');\n  row._reply = reply;\n  row._reply_text = `${esc(reply)}\\n\\nНомер заявки: <b>${row['ID']}</b>`;\n  out.push({ json: row });\n}\nreturn out;"
+      },
+      "id": "19dc845d-0541-4d6f-97d2-3f474c903fce",
+      "name": "Подготовить запись",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1260,
+        130
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "ВСТАВЬТЕ_ID_ТАБЛИЦЫ",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Заявки",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ID": "={{ $json['ID'] }}",
+            "Дата": "={{ $json['Дата'] }}",
+            "Источник": "={{ $json['Источник'] }}",
+            "Клиент": "={{ $json['Клиент'] }}",
+            "Телефон": "={{ $json['Телефон'] }}",
+            "Контакт": "={{ $json['Контакт'] }}",
+            "Суть": "={{ $json['Суть'] }}",
+            "Позиции": "={{ $json['Позиции'] }}",
+            "Категория": "={{ $json['Категория'] }}",
+            "Срочность": "={{ $json['Срочность'] }}",
+            "Тон": "={{ $json['Тон'] }}",
+            "Текст заявки": "={{ $json['Текст заявки'] }}",
+            "Статус": "={{ $json['Статус'] }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "ID",
+              "displayName": "ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Дата",
+              "displayName": "Дата",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Источник",
+              "displayName": "Источник",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Клиент",
+              "displayName": "Клиент",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Телефон",
+              "displayName": "Телефон",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Контакт",
+              "displayName": "Контакт",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Суть",
+              "displayName": "Суть",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Позиции",
+              "displayName": "Позиции",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Категория",
+              "displayName": "Категория",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Срочность",
+              "displayName": "Срочность",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Тон",
+              "displayName": "Тон",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Текст заявки",
+              "displayName": "Текст заявки",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Статус",
+              "displayName": "Статус",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2f201df4-e551-49b7-a594-369cfa80cfbd",
+      "name": "Записать в Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1500,
+        -120
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "0e6c5b88-4142-4ef4-9cb5-5dcd9c5695f1",
+              "leftValue": "={{ $json['Срочность'] }}",
+              "rightValue": "высокая",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "8e4d9ac7-388b-4ea1-8836-c4a1bfdf351a",
+              "leftValue": "={{ $json['Категория'] }}",
+              "rightValue": "жалоба",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "0412bbcd-03a8-432d-a23e-3572dd616846",
+      "name": "Срочная?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1720,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "ВСТАВЬТЕ_CHAT_ID_МЕНЕДЖЕРА",
+        "text": "={{ $json._manager_text }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "c0b84ef4-005d-4613-9f97-69c5686205bb",
+      "name": "Уведомить менеджера",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1960,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "9694a567-6864-4b7f-986e-9e413073bae0",
+              "leftValue": "={{ $json['Источник'] }}",
+              "rightValue": "telegram",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a92c6ed1-8520-4b32-be6c-cd594eded760",
+      "name": "Откуда заявка?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1720,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json._chat_id }}",
+        "text": "={{ $json._reply_text }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "8f72c2f5-844d-4a2c-b3a3-cb94a23f4bc1",
+      "name": "Ответить в Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1960,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, id: $json['ID'], message: $json._reply }) }}",
+        "options": {}
+      },
+      "id": "b200b73e-a7fb-4e8c-9440-f4597bd34498",
+      "name": "Ответить сайту",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1960,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## AI-обработка входящих заявок\nЗаявка из Telegram-бота или формы на сайте → нейросеть извлекает клиента, телефон, позиции, категорию, срочность и тон → строка в Google Sheets → срочные и жалобы сразу уходят менеджеру → клиент получает ответ с номером заявки.\n\n**Настроить:** Telegram, Google Sheets и OpenAI-совместимый ключ (DeepSeek, OpenRouter, OpenAI или локальная Ollama), ID таблицы и chat_id менеджера.",
+        "height": 200,
+        "width": 620,
+        "color": 5
+      },
+      "id": "224f7917-12e3-4b9d-be3d-8e338a420bba",
+      "name": "Описание",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -20,
+        -260
+      ]
+    }
+  ],
+  "connections": {
+    "Telegram: новое сообщение": {
+      "main": [
+        [
+          {
+            "node": "Из Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Форма на сайте": {
+      "main": [
+        [
+          {
+            "node": "С сайта",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Из Telegram": {
+      "main": [
+        [
+          {
+            "node": "Входящая заявка",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "С сайта": {
+      "main": [
+        [
+          {
+            "node": "Входящая заявка",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Входящая заявка": {
+      "main": [
+        [
+          {
+            "node": "AI: разбор заявки",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Объединить с заявкой",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "AI: разбор заявки": {
+      "main": [
+        [
+          {
+            "node": "Объединить с заявкой",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Объединить с заявкой": {
+      "main": [
+        [
+          {
+            "node": "Подготовить запись",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Подготовить запись": {
+      "main": [
+        [
+          {
+            "node": "Записать в Google Sheets",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Срочная?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Откуда заявка?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Срочная?": {
+      "main": [
+        [
+          {
+            "node": "Уведомить менеджера",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Откуда заявка?": {
+      "main": [
+        [
+          {
+            "node": "Ответить в Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ответить сайту",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Модель (DeepSeek / OpenAI)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI: разбор заявки",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Схема ответа": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI: разбор заявки",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Moscow"
+  },
+  "pinData": {},
+  "active": false
+}

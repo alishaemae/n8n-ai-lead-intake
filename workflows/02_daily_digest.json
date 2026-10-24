@@ -1,0 +1,215 @@
+{
+  "name": "Утренняя сводка по заявкам",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * 1-5"
+            }
+          ]
+        }
+      },
+      "id": "58304523-7106-4ae9-8737-833fa26bd11c",
+      "name": "Каждый будний день в 9:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "ВСТАВЬТЕ_ID_ТАБЛИЦЫ",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Заявки",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "65973d8e-4781-4dd3-8d0d-2fbfafc6634d",
+      "name": "Прочитать заявки",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        240,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Берём заявки за последние 24 часа и считаем статистику\nconst esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst now = DateTime.now().setZone('Europe/Moscow');\nconst rows = $input.all().map(i => i.json).filter(r => {\n  const d = DateTime.fromFormat(String(r['Дата'] || ''), 'dd.MM.yyyy HH:mm', { zone: 'Europe/Moscow' });\n  return d.isValid && now.diff(d, 'hours').hours <= 24;\n});\nconst count = (key) => rows.reduce((acc, r) => { const v = r[key] || '—'; acc[v] = (acc[v] || 0) + 1; return acc; }, {});\nconst fmt = (obj) => Object.entries(obj).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k}: ${v}`).join(', ') || 'нет';\nconst open = rows.filter(r => r['Статус'] === 'новая');\nconst urgent = rows.filter(r => r['Срочность'] === 'высокая' || r['Категория'] === 'жалоба');\nreturn [{ json: {\n  total: rows.length,\n  by_category: fmt(count('Категория')),\n  by_source: fmt(count('Источник')),\n  urgent_list: urgent.slice(0, 10).map(r => `• ${esc(r['Клиент'])}: ${esc(r['Суть'])} (${esc(r['Статус'])})`).join('\\n') || 'нет',\n  open_count: open.length,\n  digest_input: rows.slice(0, 50).map(r => `${r['Категория']} | ${r['Срочность']} | ${r['Тон']} | ${r['Суть']}`).join('\\n'),\n  date: now.toFormat('dd.MM.yyyy'),\n}}];"
+      },
+      "id": "e918425e-7ecc-4a05-9214-6cc3a007334e",
+      "name": "Статистика за сутки",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Заявки за сутки (категория | срочность | тон | суть):\n{{ $json.digest_input || 'заявок не было' }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "Ты руководитель отдела продаж. По списку заявок напиши 2-3 коротких пункта: что чаще всего просят, есть ли повторяющиеся проблемы или жалобы, на что обратить внимание сегодня. Только факты из списка, без воды. Если заявок не было, так и напиши."
+            }
+          ]
+        }
+      },
+      "id": "1d2f7055-645c-4169-98c8-3f2c7a3e5022",
+      "name": "AI: главное за день",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "deepseek-chat",
+          "mode": "id"
+        },
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "id": "0732c873-db14-4da3-bb49-c1266668b426",
+      "name": "Модель",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        720,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "id": "2b39921a-1b3c-41f2-9a1c-e2110784d13e",
+      "name": "Объединить",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        980,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "ВСТАВЬТЕ_CHAT_ID_МЕНЕДЖЕРА",
+        "text": "=📊 <b>Сводка по заявкам за {{ $json.date }}</b>\n\nВсего за сутки: <b>{{ $json.total }}</b>\nНе обработано: <b>{{ $json.open_count }}</b>\nПо категориям: {{ $json.by_category }}\nПо источникам: {{ $json.by_source }}\n\n<b>Срочные и жалобы:</b>\n{{ $json.urgent_list }}\n\n<b>Главное:</b>\n{{ $json.text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "9aec3c71-5065-46ec-b6d8-398664bbb0ec",
+      "name": "Отправить сводку",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1220,
+        120
+      ]
+    }
+  ],
+  "connections": {
+    "Каждый будний день в 9:00": {
+      "main": [
+        [
+          {
+            "node": "Прочитать заявки",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Прочитать заявки": {
+      "main": [
+        [
+          {
+            "node": "Статистика за сутки",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Статистика за сутки": {
+      "main": [
+        [
+          {
+            "node": "AI: главное за день",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Объединить",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Объединить": {
+      "main": [
+        [
+          {
+            "node": "Отправить сводку",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI: главное за день": {
+      "main": [
+        [
+          {
+            "node": "Объединить",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Модель": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI: главное за день",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Moscow"
+  },
+  "pinData": {},
+  "active": false
+}
